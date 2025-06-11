@@ -476,7 +476,7 @@ body {
     }
 
     .data-actions {
-        justify-content: stretch
+        flex-direction: column;
     }
 
     .column-row {
