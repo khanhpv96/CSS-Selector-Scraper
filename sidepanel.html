@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Data Scraper</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Smart Data Scraper</h1>
+            <div class="status-indicator" id="status">
+                <span class="status-dot"></span>
+                <span class="status-text">Sẵn sàng</span>
+            </div>
+        </header>
+
+        <div class="form-section">
+            <div class="section-title">
+                <h3>Cấu hình thu thập dữ liệu</h3>
+            </div>
+            
+            <div class="form-group">
+                <label>Tên dự án</label>
+                <input type="text" id="projectName" placeholder="Nhập tên dự án..." value="Dự án mới">
+            </div>
+
+            <div class="form-group">
+                <label>Tốc độ scroll (ms)</label>
+                <input type="number" id="scrollSpeed" min="100" max="5000" value="1000" placeholder="1000">
+            </div>
+
+            <div class="form-group">
+                <label>Lọc link theo từ khóa</label>
+                <input type="text" id="linkFilter" placeholder="VD: facebook.com, twitter.com (để trống nếu lấy tất cả)">
+            </div>
+
+            <div class="columns-section">
+                <div class="section-header">
+                    <label>Cột dữ liệu</label>
+                    <button type="button" id="addColumn" class="btn btn-add">
+                        <span class="icon">+</span>
+                        Thêm cột
+                    </button>
+                </div>
+                <div id="columnsContainer"></div>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <button id="startScraping" class="btn btn-primary">
+                <span class="icon">▶</span>
+                Bắt đầu thu thập
+            </button>
+            <button id="stopScraping" class="btn btn-secondary" disabled>
+                <span class="icon">⏹</span>
+                Dừng
+            </button>
+            <button id="clearData" class="btn btn-danger">
+                <span class="icon">🗑</span>
+                Xóa dữ liệu
+            </button>
+        </div>
+
+        <div class="progress-section" id="progressSection" style="display: none;">
+            <div class="progress-info">
+                <span>Đã thu thập: <strong id="recordCount">0</strong> bản ghi</span>
+                <span>Trùng lặp: <strong id="duplicateCount">0</strong></span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <div class="data-section">
+            <div class="section-header">
+                <h3>Dữ liệu thu thập được</h3>
+                <div class="data-actions">
+                    <button id="copyData" class="btn btn-outline" disabled>
+                        <span class="icon">📋</span>
+                        Sao chép
+                    </button>
+                    <button id="downloadData" class="btn btn-outline" disabled>
+                        <span class="icon">⬇</span>
+                        Tải xuống
+                    </button>
+                </div>
+            </div>
+            <div id="dataPreview" class="data-preview">
+                <div class="empty-state">
+                    <div class="empty-icon">📊</div>
+                    <p>Chưa có dữ liệu nào được thu thập</p>
+                    <small>Hãy cấu hình các cột dữ liệu và bắt đầu thu thập</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="sidepanel.js"></script>
+</body>
+</html>
