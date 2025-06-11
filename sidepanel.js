@@ -3,7 +3,9 @@ class SidePanelManager {
     this.scrapedData = [];
     this.duplicateCount = 0;
     this.isScrapingActive = false;
+    this.isPaused = false;
     this.columnCounter = 0;
+    this.scrollCount = 0;
     this.init();
   }
 
@@ -69,6 +71,7 @@ class SidePanelManager {
   bindEvents() {
     document.getElementById('addColumn').addEventListener('click', () => this.addColumn());
     document.getElementById('startScraping').addEventListener('click', () => this.startScraping());
+    document.getElementById('continueScraping').addEventListener('click', () => this.continueScraping());
     document.getElementById('stopScraping').addEventListener('click', () => this.stopScraping());
     document.getElementById('clearData').addEventListener('click', () => this.clearData());
     document.getElementById('copyData').addEventListener('click', () => this.copyToClipboard());
@@ -237,8 +240,10 @@ class SidePanelManager {
     const linkFilter = document.getElementById('linkFilter').value.trim();
     
     this.isScrapingActive = true;
+    this.isPaused = false;
     this.scrapedData = [];
     this.duplicateCount = 0;
+    this.scrollCount = 0;
     
     await this.saveConfiguration();
     this.updateUI();
@@ -256,8 +261,19 @@ class SidePanelManager {
     this.showNotification('Bắt đầu thu thập dữ liệu...', 'info');
   }
 
+  continueScraping() {
+    this.isPaused = false;
+    this.updateUI();
+    
+    chrome.runtime.sendMessage({ type: 'CONTINUE_SCRAPING' });
+    
+    this.showStatus('running', 'Tiếp tục thu thập dữ liệu...');
+    this.showNotification('Tiếp tục thu thập dữ liệu...', 'info');
+  }
+
   stopScraping() {
     this.isScrapingActive = false;
+    this.isPaused = false;
     chrome.runtime.sendMessage({ type: 'STOP_SCRAPING' });
     this.showStatus('ready', 'Đã dừng thu thập');
     this.updateUI();
@@ -268,6 +284,7 @@ class SidePanelManager {
     if (confirm('Bạn có chắc chắn muốn xóa toàn bộ dữ liệu đã thu thập?')) {
       this.scrapedData = [];
       this.duplicateCount = 0;
+      this.scrollCount = 0;
       await chrome.storage.local.set({ scrapedData: [] });
       this.updateDataPreview();
       this.updateUI();
@@ -287,8 +304,21 @@ class SidePanelManager {
       case 'SCRAPING_STATUS':
         this.showStatus(message.status, message.message);
         break;
+      case 'SCRAPING_PAUSED':
+        this.isScrapingActive = true;
+        this.isPaused = true;
+        this.scrollCount = message.scrollCount || 0;
+        this.showStatus('paused', message.message);
+        this.showNotification(`Tạm dừng sau ${this.scrollCount} lần scroll. Ấn "Tiếp tục" để scroll thêm.`, 'info');
+        this.updateUI();
+        break;
+      case 'SCROLL_PROGRESS':
+        this.scrollCount = message.scrollCount || 0;
+        this.updateScrollCount();
+        break;
       case 'SCRAPING_COMPLETE':
         this.isScrapingActive = false;
+        this.isPaused = false;
         const totalRecords = this.scrapedData.length;
         this.showStatus('success', `Hoàn thành! Thu thập được ${totalRecords} bản ghi`);
         this.showNotification(`Hoàn thành! Thu thập được ${totalRecords} bản ghi`, 'success');
@@ -334,19 +364,28 @@ class SidePanelManager {
     document.getElementById('duplicateCount').textContent = this.duplicateCount;
   }
 
+  updateScrollCount() {
+    document.getElementById('scrollCount').textContent = this.scrollCount;
+  }
+
   updateUI() {
     const startBtn = document.getElementById('startScraping');
+    const continueBtn = document.getElementById('continueScraping');
     const stopBtn = document.getElementById('stopScraping');
     const copyBtn = document.getElementById('copyData');
     const downloadBtn = document.getElementById('downloadData');
     const progressSection = document.getElementById('progressSection');
 
     startBtn.disabled = this.isScrapingActive;
+    continueBtn.disabled = !this.isPaused;
+    continueBtn.style.display = this.isPaused ? 'inline-flex' : 'none';
     stopBtn.disabled = !this.isScrapingActive;
     copyBtn.disabled = this.scrapedData.length === 0;
     downloadBtn.disabled = this.scrapedData.length === 0;
 
-    progressSection.style.display = this.isScrapingActive ? 'block' : 'none';
+    progressSection.style.display = (this.isScrapingActive || this.isPaused) ? 'block' : 'none';
+    
+    this.updateScrollCount();
   }
 
   updateDataPreview() {

@@ -10,10 +10,13 @@ class DataScraper {
     this.linkFilter = '';
     this.parentSelector = '';
     this.scrapingMode = 'normal';
+    this.scrollCount = 0;
+    this.isPaused = false;
   }
 
   async startScraping(columns, scrollSpeed, linkFilter = '', parentSelector = '', scrapingMode = 'normal') {
     this.isActive = true;
+    this.isPaused = false;
     this.columns = columns;
     this.scrollSpeed = scrollSpeed;
     this.linkFilter = linkFilter;
@@ -22,6 +25,7 @@ class DataScraper {
     this.scrapedData.clear();
     this.lastScrollHeight = 0;
     this.scrollAttempts = 0;
+    this.scrollCount = 0;
 
     this.sendMessage({
       type: 'SCRAPING_STATUS',
@@ -33,8 +37,34 @@ class DataScraper {
     await this.autoScroll();
   }
 
+  continueScraping() {
+    if (!this.isActive) return;
+    
+    this.isPaused = false;
+    this.scrollAttempts = 0;
+    
+    this.sendMessage({
+      type: 'SCRAPING_STATUS',
+      status: 'running',
+      message: 'Tiếp tục thu thập...'
+    });
+
+    this.autoScroll();
+  }
+
+  pauseScraping() {
+    this.isPaused = true;
+    this.sendMessage({
+      type: 'SCRAPING_PAUSED',
+      message: 'Đã tạm dừng thu thập',
+      scrollCount: this.scrollCount,
+      totalCount: this.scrapedData.size
+    });
+  }
+
   stopScraping() {
     this.isActive = false;
+    this.isPaused = false;
     this.sendMessage({
       type: 'SCRAPING_STATUS',
       status: 'stopped',
@@ -217,10 +247,8 @@ class DataScraper {
   }
 
   async autoScroll() {
-    let scrollCount = 0;
-    
-    while (this.isActive && scrollCount < 200) {
-      scrollCount++;
+    while (this.isActive && !this.isPaused && this.scrollCount < 500) {
+      this.scrollCount++;
       
       const beforeScrollHeight = document.documentElement.scrollHeight;
       const beforeScrollTop = window.pageYOffset || document.documentElement.scrollTop;
@@ -231,7 +259,8 @@ class DataScraper {
           this.scrollAttempts++;
           
           if (this.scrollAttempts >= this.maxScrollAttempts) {
-            break;
+            this.pauseScraping();
+            return;
           }
         } else {
           this.scrollAttempts = 0;
@@ -251,16 +280,29 @@ class DataScraper {
         await this.delay(2000);
         
         if (document.documentElement.scrollHeight === afterScrollHeight) {
-          break;
+          this.pauseScraping();
+          return;
         }
+      }
+
+      if (this.scrollCount % 20 === 0) {
+        this.sendMessage({
+          type: 'SCROLL_PROGRESS',
+          scrollCount: this.scrollCount,
+          totalCount: this.scrapedData.size
+        });
       }
     }
 
-    if (this.isActive) {
-      this.sendMessage({
-        type: 'SCRAPING_COMPLETE',
-        totalCount: this.scrapedData.size
-      });
+    if (this.isActive && !this.isPaused) {
+      if (this.scrollCount >= 500) {
+        this.pauseScraping();
+      } else {
+        this.sendMessage({
+          type: 'SCRAPING_COMPLETE',
+          totalCount: this.scrapedData.size
+        });
+      }
     }
   }
 
@@ -275,6 +317,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case 'START_SCRAPING':
       scraper.startScraping(message.columns, message.scrollSpeed, message.linkFilter, message.parentSelector, message.scrapingMode);
+      sendResponse({ success: true });
+      break;
+    case 'CONTINUE_SCRAPING':
+      scraper.continueScraping();
       sendResponse({ success: true });
       break;
     case 'STOP_SCRAPING':

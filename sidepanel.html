@@ -67,6 +67,10 @@
                 <span class="icon">▶</span>
                 Bắt đầu thu thập
             </button>
+            <button id="continueScraping" class="btn btn-success" disabled style="display: none;">
+                <span class="icon">⏩</span>
+                Tiếp tục
+            </button>
             <button id="stopScraping" class="btn btn-secondary" disabled>
                 <span class="icon">⏹</span>
                 Dừng
@@ -80,6 +84,7 @@
         <div class="progress-section" id="progressSection" style="display: none;">
             <div class="progress-info">
                 <span>Đã thu thập: <strong id="recordCount">0</strong> bản ghi</span>
+                <span>Scroll: <strong id="scrollCount">0</strong> lần</span>
                 <span>Trùng lặp: <strong id="duplicateCount">0</strong></span>
             </div>
             <div class="progress-bar">
