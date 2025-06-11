@@ -16,13 +16,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       }
     });
+  } else if (message.type === 'CONTINUE_SCRAPING') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, { type: 'CONTINUE_SCRAPING' });
+      }
+    });
   } else if (message.type === 'STOP_SCRAPING') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) {
         chrome.tabs.sendMessage(tabs[0].id, { type: 'STOP_SCRAPING' });
       }
     });
-  } else if (message.type === 'NEW_DATA' || message.type === 'SCRAPING_STATUS' || message.type === 'SCRAPING_COMPLETE') {
+  } else if (message.type === 'NEW_DATA' || message.type === 'SCRAPING_STATUS' || message.type === 'SCRAPING_COMPLETE' || message.type === 'SCRAPING_PAUSED' || message.type === 'SCROLL_PROGRESS') {
     chrome.runtime.sendMessage(message);
   }
   return true;
