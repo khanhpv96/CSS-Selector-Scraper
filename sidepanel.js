@@ -12,6 +12,58 @@ class SidePanelManager {
     await this.loadStoredData();
     this.addInitialColumn();
     this.updateUI();
+    this.createNotificationContainer();
+  }
+
+  createNotificationContainer() {
+    if (!document.getElementById('notificationContainer')) {
+      const container = document.createElement('div');
+      container.id = 'notificationContainer';
+      container.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        pointer-events: none;
+      `;
+      document.body.appendChild(container);
+    }
+  }
+
+  showNotification(message, type = 'success') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      pointer-events: auto;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      max-width: 300px;
+      word-wrap: break-word;
+    `;
+    notification.textContent = message;
+    
+    const container = document.getElementById('notificationContainer');
+    container.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    setTimeout(() => {
+      notification.style.transform = 'translateX(100%)';
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 300);
+    }, 3000);
   }
 
   bindEvents() {
@@ -21,17 +73,37 @@ class SidePanelManager {
     document.getElementById('clearData').addEventListener('click', () => this.clearData());
     document.getElementById('copyData').addEventListener('click', () => this.copyToClipboard());
     document.getElementById('downloadData').addEventListener('click', () => this.downloadCSV());
+    document.getElementById('scrapingMode').addEventListener('change', () => this.toggleScrapingMode());
 
     chrome.runtime.onMessage.addListener((message) => {
       this.handleMessage(message);
     });
   }
 
+  toggleScrapingMode() {
+    const mode = document.getElementById('scrapingMode').value;
+    const linkFilterGroup = document.getElementById('linkFilterGroup');
+    const parentSelectorGroup = document.getElementById('parentSelectorGroup');
+    
+    if (mode === 'parent') {
+      linkFilterGroup.style.display = 'none';
+      parentSelectorGroup.style.display = 'block';
+    } else {
+      linkFilterGroup.style.display = 'block';
+      parentSelectorGroup.style.display = 'none';
+    }
+  }
+
   async loadStoredData() {
-    const stored = await chrome.storage.local.get(['scrapedData', 'projectName', 'columns', 'linkFilter']);
+    const stored = await chrome.storage.local.get(['scrapedData', 'projectName', 'columns', 'linkFilter', 'scrapingMode', 'parentSelector']);
     if (stored.scrapedData) this.scrapedData = stored.scrapedData;
     if (stored.projectName) document.getElementById('projectName').value = stored.projectName;
     if (stored.linkFilter) document.getElementById('linkFilter').value = stored.linkFilter;
+    if (stored.scrapingMode) {
+      document.getElementById('scrapingMode').value = stored.scrapingMode;
+      this.toggleScrapingMode();
+    }
+    if (stored.parentSelector) document.getElementById('parentSelector').value = stored.parentSelector;
     if (stored.columns && stored.columns.length > 0) {
       this.loadColumns(stored.columns);
     }
@@ -130,11 +202,15 @@ class SidePanelManager {
   async saveConfiguration() {
     const projectName = document.getElementById('projectName').value;
     const linkFilter = document.getElementById('linkFilter').value;
+    const scrapingMode = document.getElementById('scrapingMode').value;
+    const parentSelector = document.getElementById('parentSelector').value;
     const columns = this.getColumns();
     
     await chrome.storage.local.set({
       projectName,
       linkFilter,
+      scrapingMode,
+      parentSelector,
       columns,
       scrapedData: this.scrapedData
     });
@@ -144,6 +220,16 @@ class SidePanelManager {
     const columns = this.getColumns();
     if (columns.length === 0) {
       this.showStatus('error', 'Vui lòng thêm ít nhất một cột dữ liệu');
+      this.showNotification('Vui lòng thêm ít nhất một cột dữ liệu', 'error');
+      return;
+    }
+
+    const scrapingMode = document.getElementById('scrapingMode').value;
+    const parentSelector = document.getElementById('parentSelector').value.trim();
+    
+    if (scrapingMode === 'parent' && !parentSelector) {
+      this.showStatus('error', 'Vui lòng nhập CSS selector cha');
+      this.showNotification('Vui lòng nhập CSS selector cha', 'error');
       return;
     }
 
@@ -161,10 +247,13 @@ class SidePanelManager {
       type: 'START_SCRAPING',
       columns,
       scrollSpeed,
-      linkFilter
+      linkFilter,
+      parentSelector,
+      scrapingMode
     });
 
     this.showStatus('running', 'Đang thu thập dữ liệu...');
+    this.showNotification('Bắt đầu thu thập dữ liệu...', 'info');
   }
 
   stopScraping() {
@@ -172,6 +261,7 @@ class SidePanelManager {
     chrome.runtime.sendMessage({ type: 'STOP_SCRAPING' });
     this.showStatus('ready', 'Đã dừng thu thập');
     this.updateUI();
+    this.showNotification('Đã dừng thu thập dữ liệu', 'info');
   }
 
   async clearData() {
@@ -182,6 +272,7 @@ class SidePanelManager {
       this.updateDataPreview();
       this.updateUI();
       this.showStatus('ready', 'Đã xóa dữ liệu');
+      this.showNotification('Đã xóa toàn bộ dữ liệu', 'success');
     }
   }
 
@@ -198,7 +289,9 @@ class SidePanelManager {
         break;
       case 'SCRAPING_COMPLETE':
         this.isScrapingActive = false;
-        this.showStatus('success', `Hoàn thành! Thu thập được ${this.scrapedData.length} bản ghi`);
+        const totalRecords = this.scrapedData.length;
+        this.showStatus('success', `Hoàn thành! Thu thập được ${totalRecords} bản ghi`);
+        this.showNotification(`Hoàn thành! Thu thập được ${totalRecords} bản ghi`, 'success');
         this.updateUI();
         break;
     }
@@ -303,6 +396,22 @@ class SidePanelManager {
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   }
 
+  generateTSV() {
+    if (this.scrapedData.length === 0) return '';
+
+    const columns = this.getColumns();
+    const headers = columns.map(col => col.name).join('\t');
+    
+    const rows = this.scrapedData.map(row => {
+      return columns.map(col => {
+        const value = (row[col.name] || '').toString();
+        return value.replace(/[\t\n\r]/g, ' ').trim();
+      }).join('\t');
+    });
+
+    return headers + '\n' + rows.join('\n');
+  }
+
   generateCSV() {
     if (this.scrapedData.length === 0) return '';
 
@@ -321,16 +430,29 @@ class SidePanelManager {
 
   async copyToClipboard() {
     try {
-      const csvContent = this.generateCSV();
-      await navigator.clipboard.writeText(csvContent);
-      this.showStatus('success', 'Đã sao chép dữ liệu CSV');
+      if (this.scrapedData.length === 0) {
+        this.showNotification('Không có dữ liệu để sao chép', 'error');
+        return;
+      }
+
+      const tsvContent = this.generateTSV();
+      await navigator.clipboard.writeText(tsvContent);
+      
+      this.showStatus('success', 'Đã sao chép dữ liệu');
+      this.showNotification(`Đã sao chép ${this.scrapedData.length} bản ghi (định dạng TSV cho Google Sheets)`, 'success');
     } catch (error) {
       console.error('Copy failed:', error);
       this.showStatus('error', 'Không thể sao chép dữ liệu');
+      this.showNotification('Không thể sao chép dữ liệu. Vui lòng thử lại.', 'error');
     }
   }
 
   downloadCSV() {
+    if (this.scrapedData.length === 0) {
+      this.showNotification('Không có dữ liệu để tải xuống', 'error');
+      return;
+    }
+
     const csvContent = this.generateCSV();
     const projectName = document.getElementById('projectName').value || 'data';
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
@@ -349,6 +471,7 @@ class SidePanelManager {
     
     URL.revokeObjectURL(link.href);
     this.showStatus('success', `Đã tải xuống ${filename}`);
+    this.showNotification(`Đã tải xuống ${filename} với ${this.scrapedData.length} bản ghi`, 'success');
   }
 }
 

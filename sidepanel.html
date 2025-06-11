@@ -32,8 +32,21 @@
             </div>
 
             <div class="form-group">
+                <label>Chế độ thu thập</label>
+                <select id="scrapingMode" class="form-control">
+                    <option value="normal">Thu thập thông thường</option>
+                    <option value="parent">Thu thập theo CSS selector cha</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="linkFilterGroup">
                 <label>Lọc link theo từ khóa</label>
                 <input type="text" id="linkFilter" placeholder="VD: facebook.com, twitter.com (để trống nếu lấy tất cả)">
+            </div>
+
+            <div class="form-group" id="parentSelectorGroup" style="display: none;">
+                <label>CSS Selector cha</label>
+                <input type="text" id="parentSelector" placeholder="VD: .post-item, .product-card, article">
             </div>
 
             <div class="columns-section">
