@@ -9,7 +9,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.tabs.sendMessage(tabs[0].id, {
           type: 'START_SCRAPING',
           columns: message.columns,
-          scrollSpeed: message.scrollSpeed
+          scrollSpeed: message.scrollSpeed,
+          linkFilter: message.linkFilter,
+          parentSelector: message.parentSelector,
+          scrapingMode: message.scrapingMode
         });
       }
     });
@@ -30,6 +33,9 @@ chrome.runtime.onInstalled.addListener(() => {
     scrapedData: [],
     isScrapingActive: false,
     projectName: 'Dự án mới',
-    columns: []
+    columns: [],
+    scrapingMode: 'normal',
+    parentSelector: '',
+    linkFilter: ''
   });
 });
